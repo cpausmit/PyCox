@@ -337,12 +337,12 @@ def dbxMkDir(config,src,debug=0):
 #  M A I N
 #===================================================================================================
 # Define string to explain usage of the script
-usage =  " Usage: dbx.py   --action=<what do you want to do?>\n"
-usage += "                 --source=<the source the action should apply to>\n"
-usage += "                 [ --target=<the target where data should go> ]\n"
-usage += "                 [ --debug=0 ]             <-- see various levels of debug output\n"
-usage += "                 [ --exec ]                <-- add this to execute all actions\n"
-usage += "                 [ --help ]\n"
+usage =  " Usage: pycox.py  --action=<what do you want to do?>\n"
+usage += "                  --source=<the source the action should apply to>\n"
+usage += "                [ --target=<the target where data should go> ]\n"
+usage += "                [ --debug=0 ]             <-- see various levels of debug output\n"
+usage += "                [ --exec ]                <-- add this to execute all actions\n"
+usage += "                [ --help ]\n"
 
 # Define the valid options which can be specified and check out the command line
 valid = ['configFile=','action=','source=','target=','debug=','exec','help']
