@@ -4,9 +4,9 @@ PyCox is an interface that implements the common shell commands to interact with
 
 ## Installation
 
-  clone https://github.com/cpausmit/PyCox
-  cd PyCox
-  ./install.sh
+* clone https://github.com/cpausmit/PyCox
+* cd PyCox
+* ./install.sh
 
 This will generate the ./setup.sh command. It will make sure that the commands can run picking up the default configuation. To make sure you can access the data in your dropbox place you need to define all relevant parameters, see the pycox.cfg file.
 
