@@ -16,13 +16,13 @@ If you want to use pycox please setup using source ./setup.sh.
 
 The core functions can be run using the pycox.py script. It has python style command line arguments and can feel a little clunky, nevertheless for clarity it was written that way. For ease of use a number of short bash function are defined which will make the tool feel more like shell command.
 
-* pcLs <dropbox-path>
-* pcDu1 <dropbox-path>
-* pcMkdir <dropbox-path>
-* pcRm <dropbox-file>
-* pcRmDir <dropbox-dir>
-* pcUp <local-file> <dropbox-file>
-* pcDown <dropbox-file> <local-file>
+* pcLs _dropbox-path_
+* pcDu1 _dropbox-path_
+* pcMkdir _dropbox-path_
+* pcRm _dropbox-file_
+* pcRmDir _dropbox-dir_
+* pcUp _local-file_ _dropbox-file_
+* pcDown _dropbox-file_ _local-file_
 
 
 ## Status
