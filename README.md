@@ -4,7 +4,7 @@ PyCox is an interface that implements the common shell commands to interact with
 
 ## Installation
 
-* clone https://github.com/cpausmit/PyCox
+* clone git://github.com/cpausmit/PyCox
 * cd PyCox
 * ./install.sh
 
