@@ -8,7 +8,7 @@
 import os,sys,subprocess,getopt,re,random,ConfigParser,pycurl,urllib,time,json,pprint
 from io import BytesIO
 
-#MY_ID = 
+MY_ID = 123409102
 
 #===================================================================================================
 #  H E L P E R S
@@ -53,9 +53,13 @@ def dbxBaseUrl(config,api,src,debug=0):
     # this is the generic interface to constructa full curl URL based on put (default)
     
     # build the curl url
-    url = config.get('api',api) + '/' + config.get('general','access_level')
+    url = config.get('api',api)
 
-    # add source is not empty
+    # some urls do not need the access level added
+    if api != 'chunked_upload_url':
+        url += '/' + config.get('general','access_level')
+
+    # add source if it is not empty
     if src != '':
         srcUrl = urllib.quote_plus(src)
         url += '/' + srcUrl
@@ -277,8 +281,27 @@ def createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug):
     offsetMBytes=offsetBytes/1024/1024
     cmd = "dd if=" + src " of=" + tmpChunkFile + " bs=1048576 skip=" + offsetMBytes \
         + " count=" + chunkSize + " 2> /dev/null"
+    os.system(cmd)
 
     return
+
+def removeChunk(tmpChunkFile,debug):
+    # remove the temporary chunk
+    
+    # convert to MB (for chunk file)
+    cmd = "rm -f " + tmpChunkFile
+    os.system(cmd)
+
+    return
+
+def defineChunkedUpload(data,debug):
+    # create a chunk of a file starting at offset and chunksize large if possible
+    
+    uploadId = 0
+    offsetBytes = 1
+    print data
+
+    return (uploadId, offsetBytes)
 
 def dbxUpChunked(config,src,tgt,debug=0):
     # upload a given large local source file (src) to dropbox target file (tgt) as the chances
@@ -288,10 +311,12 @@ def dbxUpChunked(config,src,tgt,debug=0):
     print "# o UploadChunked o  " + src + "  -->  " + tgt
 
     # get the core elements for curl
-    offestBytes = 0
-    uploadId = 0
+    nErrors = 0      # keep track of potential upload errors
+    offsetBytes = 0  # used to keep track of progress
+    uploadId = 0     # will be set by dropbox and returned on first chunk
     tmpChunkFile = "/tmp/pycox_chunk." + MY_ID
-    while offestBytes!= size:
+
+    while offestBytes != size:
 
         # make the temporary chunk file
         createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug)
@@ -301,9 +326,25 @@ def dbxUpChunked(config,src,tgt,debug=0):
         if offsetBytes != 0:
             parameters="upload_id=" + uploadId + "&offset=" + offsetBytes
             
-        # 
-        url = dbxBaseUrl(config,'chunked_upload_url',tgt,debug)
+        # build the url carefully
+        url  = dbxBaseUrl(config,'chunked_upload_url','',debug)
+        url += parameters
         data = dbxExecuteCurl(url,'',tmpChunkFile,debug)
+        
+        # read the uploadId and new offset from dropbox on first chunked upload
+        if offsetBytes = 0:
+            (uploadId, offsetBytes) = defineChunkedUpload(data,debug)
+
+        # remove temporary chunk file
+        removeChunk(tmpChunkFile,debug)
+
+    # chunks are now all uploaded (no errors) -- commit the file
+    if nErrors == 0:
+        # build the url carefully
+        url = config.get('api',api) + '/' + config.get('general','access_level') + '/' + urllib.quote_plus(tgt)
+        postfields = 'upload_id=' + uploadId + '&' + buildCurlOptions(config)
+        data = dbxExecuteCurl(url,postfields,tmpChunkFile,debug)
+
 
 #chunked_upload_url = https://api-content.dropbox.com/1/chunked_upload
 #chunked_upload_commit_url = https://api-content.dropbox.com/1/commit_chunked_upload
