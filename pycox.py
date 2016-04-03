@@ -8,6 +8,8 @@
 import os,sys,subprocess,getopt,re,random,ConfigParser,pycurl,urllib,time,json,pprint
 from io import BytesIO
 
+#MY_ID = 
+
 #===================================================================================================
 #  H E L P E R S
 #===================================================================================================
@@ -51,8 +53,12 @@ def dbxBaseUrl(config,api,src,debug=0):
     # this is the generic interface to constructa full curl URL based on put (default)
     
     # build the curl url
-    srcUrl = urllib.quote_plus(src)
-    url = config.get('api',api)+'/'+config.get('general','access_level')+'/'+srcUrl
+    url = config.get('api',api) + '/' + config.get('general','access_level')
+
+    # add source is not empty
+    if src != '':
+        srcUrl = urllib.quote_plus(src)
+        url += '/' + srcUrl
 
     # prepare the curl authentication parameters
     postfields = buildCurlOptions(config)
@@ -100,13 +106,15 @@ def dbxExecuteCurl(url,postfields='',fileName='',debug=0):
         c.setopt(pycurl.UPLOAD,1)
         c.setopt(c.READFUNCTION,fileH.read)
         c.setopt(c.INFILESIZE,fileSize)
-        print  ' File: %s  size:%d'%(fileName,fileSize) 
+        print  ' File: %s  size: %d bytes'%(fileName,fileSize) 
 
     # perform the curl request and close it
     c.perform()
     c.close()
 
     # extract the data from the curl buffer using a json structure
+    data = {}
+    #print body.getvalue()
     try:
         data = json.loads(body.getvalue())
     except ValueError:
@@ -159,7 +167,8 @@ def dbxIsDir(config,src,debug=0):
         if data["is_dir"]:
             return 1
     else:
-        print ' ERROR - Requested object not identified.'
+        if debug:
+            print ' ERROR - Requested object not identified.'
         return -1
         
     return 0
@@ -247,10 +256,57 @@ def dbxUp(config,src,tgt,debug=0):
     # upload a given local source file (src) to dropbox target file (tgt)
 
     print "# o Upload o  " + src + "  -->  " + tgt
+
+    # size determines whether in one shot or by chunks
+    statinfo = os.stat(src)
+    size = statinfo.st_size
   
+    if size > 157286000:
+        dbxUpChunked(config,src,tgt,debug=0):    
+    else:
+        # get the core elements for curl
+        url = dbxBaseUrl(config,'upload_url',tgt,debug)
+        data = dbxExecuteCurl(url,'',src,debug)
+
+    return
+
+def createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug):
+    # create a chunk of a file starting at offset and chunksize large if possible
+    
+    # convert to MB (for chunk file)
+    offsetMBytes=offsetBytes/1024/1024
+    cmd = "dd if=" + src " of=" + tmpChunkFile + " bs=1048576 skip=" + offsetMBytes \
+        + " count=" + chunkSize + " 2> /dev/null"
+
+    return
+
+def dbxUpChunked(config,src,tgt,debug=0):
+    # upload a given large local source file (src) to dropbox target file (tgt) as the chances
+    # for failure are large, the upload is done in chunks and later committed. Dropbox seems to
+    # be checking.
+
+    print "# o UploadChunked o  " + src + "  -->  " + tgt
+
     # get the core elements for curl
-    url = dbxBaseUrl(config,'upload_url',tgt,debug)
-    data = dbxExecuteCurl(url,'',src,debug)
+    offestBytes = 0
+    uploadId = 0
+    tmpChunkFile = "/tmp/pycox_chunk." + MY_ID
+    while offestBytes!= size:
+
+        # make the temporary chunk file
+        createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug)
+
+        # first request should not have those parameters
+        parameters = ''
+        if offsetBytes != 0:
+            parameters="upload_id=" + uploadId + "&offset=" + offsetBytes
+            
+        # 
+        url = dbxBaseUrl(config,'chunked_upload_url',tgt,debug)
+        data = dbxExecuteCurl(url,'',tmpChunkFile,debug)
+
+#chunked_upload_url = https://api-content.dropbox.com/1/chunked_upload
+#chunked_upload_commit_url = https://api-content.dropbox.com/1/commit_chunked_upload
 
     return
 
