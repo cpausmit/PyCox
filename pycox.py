@@ -8,7 +8,10 @@
 import os,sys,subprocess,getopt,re,random,ConfigParser,pycurl,urllib,time,json,pprint
 from io import BytesIO
 
-MY_ID = 123409102
+# Make a unique id to be used throughout to generate unique files (the id
+# is not guaranteed to be unique but it is hard to duplicate it.)
+MY_ID = int(time.time()*100)
+#print "My ID: %d"%(MY_ID)
 
 #===================================================================================================
 #  H E L P E R S
@@ -42,9 +45,12 @@ def buildCurlOptions(config):
     postData = {}
     for (key,value) in config.items('oauth'):
         postData['oauth_'+key] = value
-    # add the time and a random number
-    postData['oauth_timestamp'] = time.time()
-    postData['oauth_nonce'] = 1234512
+
+    # add the time and a random number [ this might not be needed at all to be checked ]
+    postData['oauth_timestamp'] = int(time.time())
+    postData['oauth_nonce'] = MY_ID
+
+    # convert data dictionary into a url encoded string
     postfields = urllib.urlencode(postData)
 
     return postfields
@@ -71,17 +77,15 @@ def dbxBaseUrl(config,api,src,debug=0):
 
     return url
 
-def dbxBaseUrlGet(config,api,src,debug=0):
-    # this is the generic interface to constructa full curl URL based on get (default is put)
+def dbxBaseUrlGet(config,api,debug=0):
+    # this is the generic interface to construct a full curl URL based on get (default is put)
    
     # build the curl url
     url = config.get('api',api)
 
     # prepare the curl authentication parameters
-    srcUrl = urllib.quote_plus(src)
     postfields  = buildCurlOptions(config)
     postfields += '&root=' + config.get('general','access_level')
-    postfields += '&path=' + srcUrl
     
     return (url,postfields)
 
@@ -255,7 +259,49 @@ def dbxDu1(config,src,debug=0):
     print ' %s %.3f'%('Total [GB]:',totalBytes/1000./1000./1000.)
 
     return
+    
+def dbxCp(config,src,tgt,debug=0):
+    # copy a given remote source file (src) to remote target file (tgt)
 
+    print "# o Copy o  " + src + "  -->  " + tgt
+
+    # check if target is an existing directory and adjust accordingly
+    if dbxIsDir(config,tgt,debug) == 1:
+        f = src.split("/")
+        baseFile = f.pop()
+        tgt += '/' + baseFile
+    
+    # build the url
+    (url,postfields) = dbxBaseUrlGet(config,'copy_url',debug)
+    postfields += '&from_path=' + urllib.quote_plus(src)
+    postfields += '&to_path=' + urllib.quote_plus(tgt)
+
+    # execute
+    data = dbxExecuteCurl(url,postfields,'',debug)
+
+    return
+
+def dbxMv(config,src,tgt,debug=0):
+    # move a given remote source file (src) to remote target file (tgt)
+
+    print "# o Move o  " + src + "  -->  " + tgt
+
+    # check if target is an existing directory and adjust accordingly
+    if dbxIsDir(config,tgt,debug) == 1:
+        f = src.split("/")
+        baseFile = f.pop()
+        tgt += '/' + baseFile
+
+    # build the url
+    (url,postfields) = dbxBaseUrlGet(config,'move_url',debug)
+    postfields += '&from_path=' + urllib.quote_plus(src)
+    postfields += '&to_path=' + urllib.quote_plus(tgt)
+
+    # execute
+    data = dbxExecuteCurl(url,postfields,'',debug)
+
+    return
+    
 def dbxUp(config,src,tgt,debug=0):
     # upload a given local source file (src) to dropbox target file (tgt)
 
@@ -266,7 +312,7 @@ def dbxUp(config,src,tgt,debug=0):
     size = statinfo.st_size
   
     if size > 157286000:
-        dbxUpChunked(config,src,tgt,debug=0):    
+        dbxUpChunked(config,src,tgt,debug=0)
     else:
         # get the core elements for curl
         url = dbxBaseUrl(config,'upload_url',tgt,debug)
@@ -274,13 +320,13 @@ def dbxUp(config,src,tgt,debug=0):
 
     return
 
-def createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug):
+def createChunk(src,tmpChunkFile,offsetBytes,chunkSizeMbytes,debug):
     # create a chunk of a file starting at offset and chunksize large if possible
     
     # convert to MB (for chunk file)
-    offsetMBytes=offsetBytes/1024/1024
-    cmd = "dd if=" + src " of=" + tmpChunkFile + " bs=1048576 skip=" + offsetMBytes \
-        + " count=" + chunkSize + " 2> /dev/null"
+    offsetMBytes = offsetBytes/1024/1024
+    cmd  = "dd if=" + src + " of=" + tmpChunkFile + "skip=" + offsetMBytes
+    cmd += " bs=1048576 count=" + chunkSizeMbytes + " 2> /dev/null"
     os.system(cmd)
 
     return
@@ -288,20 +334,23 @@ def createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug):
 def removeChunk(tmpChunkFile,debug):
     # remove the temporary chunk
     
-    # convert to MB (for chunk file)
-    cmd = "rm -f " + tmpChunkFile
-    os.system(cmd)
+    os.remove(tmpChunkFile)
 
     return
 
-def defineChunkedUpload(data,debug):
+def nextChunkedUpload(offsetBytes,data,debug):
     # create a chunk of a file starting at offset and chunksize large if possible
     
     uploadId = 0
-    offsetBytes = 1
+    error = 0
+
+#### Decoding is needed
+
     print data
 
-    return (uploadId, offsetBytes)
+    # in case of error keep offsetBytes the same so to make another try
+    
+    return (uploadId, offsetBytes, error)
 
 def dbxUpChunked(config,src,tgt,debug=0):
     # upload a given large local source file (src) to dropbox target file (tgt) as the chances
@@ -312,14 +361,17 @@ def dbxUpChunked(config,src,tgt,debug=0):
 
     # get the core elements for curl
     nErrors = 0      # keep track of potential upload errors
+    nErrorsMax = config.get('general','chunk_error_max')
     offsetBytes = 0  # used to keep track of progress
     uploadId = 0     # will be set by dropbox and returned on first chunk
-    tmpChunkFile = "/tmp/pycox_chunk." + MY_ID
-
-    while offestBytes != size:
+    tmpChunkFile = "/tmp/pycox_tmp_chunk." + MY_ID
+    chunkSizeMbytes = config.get('general','chunk_size_mbytes')
+    
+    # be aware of the fact that there is no error handling yet, NEEDS TO BE IMPLEMENTED
+    while offsetBytes != size:
 
         # make the temporary chunk file
-        createChunk(src,tmpChunkFile,offsetBytes,chunkSize,debug)
+        createChunk(src,tmpChunkFile,offsetBytes,chunkSizeMbytes,debug)
 
         # first request should not have those parameters
         parameters = ''
@@ -331,24 +383,35 @@ def dbxUpChunked(config,src,tgt,debug=0):
         url += parameters
         data = dbxExecuteCurl(url,'',tmpChunkFile,debug)
         
-        # read the uploadId and new offset from dropbox on first chunked upload
-        if offsetBytes = 0:
-            (uploadId, offsetBytes) = defineChunkedUpload(data,debug)
-
+        # read the uploadId and new offset from dropbox
+        (uploadId, offsetBytes, error) = nextChunkedUpload(offsetBytes,data,debug)
+        if error>0:
+            nErrors += 1
+            if nErrors >= nErrorsMax:
+                print '\n ERROR - chunk in chunked upload failed %d times, giving up.\n'%(nErrors)
+                sys.exit(1)
+            
         # remove temporary chunk file
         removeChunk(tmpChunkFile,debug)
 
     # chunks are now all uploaded (no errors) -- commit the file
-    if nErrors == 0:
-        # build the url carefully
-        url = config.get('api',api) + '/' + config.get('general','access_level') + '/' + urllib.quote_plus(tgt)
+    nErrors = 0      # keep track of potential upload commit errors
+    while True:
+        # build the url here locally, non-standard
+        url = config.get('api',api) + '/' + config.get('general','access_level') \
+              + '/' + urllib.quote_plus(tgt)
         postfields = 'upload_id=' + uploadId + '&' + buildCurlOptions(config)
         data = dbxExecuteCurl(url,postfields,tmpChunkFile,debug)
 
-
-#chunked_upload_url = https://api-content.dropbox.com/1/chunked_upload
-#chunked_upload_commit_url = https://api-content.dropbox.com/1/commit_chunked_upload
-
+        # deal with error
+        if dataError:
+            nErrors += 1
+            if nErrors >= nErrorsMax:
+                print '\n ERROR - commit of chunked upload failed %d times, giving up.\n'%(nErrors)
+                sys.exit(1)
+        else:
+            break
+        
     return
 
 def dbxDown(config,src,tgt,debug=0):
@@ -371,11 +434,8 @@ def dbxRm(config,src,debug=0):
 
     if   isDir == 0:
         # get the core elements for curl
-        (url,postfields) = dbxBaseUrlGet(config,'delete_url',src,debug)
-
-        print " URL: " + url
-        print " POSTFIELDS: " + postfields
-
+        (url,postfields) = dbxBaseUrlGet(config,'delete_url',debug)
+        postfields += '&path=' + urllib.quote_plus(src)
         data = dbxExecuteCurl(url,postfields,'',debug)
     elif isDir == 1:
         print ' ERROR - path is a directory, cannot delete.'
@@ -399,7 +459,8 @@ def dbxRmDir(config,src,debug=0):
         response = raw_input(" Please confirm [N/y]: ") 
         if response == 'y':
             # get the core elements for curl
-            (url,postfields) = dbxBaseUrlGet(config,'delete_url',src,debug)
+            (url,postfields) = dbxBaseUrlGet(config,'delete_url',debug)
+            postfields += '&path=' + urllib.quote_plus(src)
             data = dbxExecuteCurl(url,postfields,'',debug)
         else:
             print "\n STOP. EXIT here. \n"
@@ -425,7 +486,8 @@ def dbxMkDir(config,src,debug=0):
     else:
         # show what is in there and ask
         # get the core elements for curl
-        (url,postfields) = dbxBaseUrlGet(config,'mkdir_url',src,debug)
+        (url,postfields) = dbxBaseUrlGet(config,'mkdir_url',debug)
+        postfields += '&path=' + urllib.quote_plus(src)
         data = dbxExecuteCurl(url,postfields,'',debug)
 
     return
@@ -504,6 +566,10 @@ elif action == 'mkdir':
     dbxMkDir(config,src,debug)
 elif action == 'du1':
     dbxDu1(config,src,debug)
+elif action == 'cp':
+    dbxCp(config,src,tgt,debug)
+elif action == 'mv':
+    dbxMv(config,src,tgt,debug)
 elif action == 'up':
     dbxUp(config,src,tgt,debug)
 elif action == 'down':
