@@ -315,7 +315,7 @@ def dbxDu2(config,src,debug=0):
         print ' %.3f -- %s'%(sizeBytes/1000./1000./1000.,key)
 
     # summarize our findings
-    print ' %.3f == %s'%(totalBytes/1000./1000./1000.,'Total [GB]:')
+    print ' %.3f == %s'%(totalBytes/1000./1000./1000.,'Total [GB]')
 
     return
     
