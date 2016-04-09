@@ -192,6 +192,8 @@ def dbxLs(config,src,debug=0):
     
     # setup the curl output buffer
     data = dbxGetMetaData(config,src,debug)
+    if debug>2:
+        pprint.pprint(data)
     
     # make sure path exists
     if 'is_deleted' in data:
@@ -226,6 +228,42 @@ def dbxLs(config,src,debug=0):
             print ' ERROR - Requested object does not exist.'
 
     return
+
+
+def dbxDu(config,src,debug=0):
+
+    # setup the curl output buffer
+    data = dbxGetMetaData(config,src,debug)
+    isDir = dbxIsDir(config,src,debug)
+    if debug>2:
+        pprint.pprint(data)
+
+    # loop through the content and show each entry we find
+    totalBytes = 0
+
+    if isDir == 1:
+        for entry in data["contents"]:
+            isEntryDir = dbxIsDir(config,src,debug)
+            if isEntryDir == 1:
+                # this is a directory
+                subsrc = entry["path"]
+                if subsrc == src:
+                    continue
+                totalBytes += dbxDu(config,subsrc,debug)
+            elif isEntryDir == 0:
+                # this is a simple file
+                file = entry["path"]
+                sizeBytes = entry["bytes"]
+                totalBytes += sizeBytes
+                #print  "%10d  "%(sizeBytes) + file
+        print  "%10d -"%(totalBytes) + src
+    elif isDir == 0:
+        totalBytes = data["bytes"]
+    else:
+        print ' ERROR - Requested object does not exist.'
+
+    # return the measured size
+    return totalBytes
 
 def dbxDu1(config,src,debug=0):
     # List disk usage for the given entry but only at most 1 level deep (for directories)
@@ -684,6 +722,8 @@ elif action == 'rmdir':
     dbxRmDir(config,src,debug)
 elif action == 'mkdir':
     dbxMkDir(config,src,debug)
+elif action == 'du':
+    dbxDu(config,src,debug)
 elif action == 'du1':
     dbxDu1(config,src,debug)
 elif action == 'du2':

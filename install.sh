@@ -15,6 +15,7 @@ echo ""                                            >> setup.sh
 
 # need to setup the funtions and load them
 echo 'function pcLs()    { pycox.py --action ls    --source "$1"; }'               >> setup.sh
+echo 'function pcDu()    { pycox.py --action du    --source "$1"; }'               >> setup.sh
 echo 'function pcDu1()   { pycox.py --action du1   --source "$1"; }'               >> setup.sh
 echo 'function pcDu2()   { pycox.py --action du2   --source "$1"; }'               >> setup.sh
 echo 'function pcRm()    { pycox.py --action rm    --source "$1"; }'               >> setup.sh
