@@ -430,7 +430,8 @@ def removeChunk(tmpChunkFile,debug):
 
 def nextChunkedUpload(uploadId,offsetBytes,data,debug):
     # create a chunk of a file starting at offset and chunksize large if possible
-    
+
+    error = 0
     if 'upload_id' in data:
         error = 0
         uploadId = data['upload_id']
@@ -485,6 +486,7 @@ def dbxUpChunked(config,src,tgt,debug=0):
         data = dbxExecuteCurl(url,'',tmpChunkFile,debug)
         
         # read the uploadId and new offset from dropbox
+        error = None
         (uploadId, offsetBytes, error) = nextChunkedUpload(uploadId,offsetBytes,data,debug)
         if error>0:
             nErrors += 1
