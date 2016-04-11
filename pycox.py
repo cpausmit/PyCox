@@ -427,6 +427,7 @@ def dbxUp(config,src,tgt,debug=0):
     # upload a given local source file (src) to dropbox target file (tgt)
 
     print "# o Upload o  " + src + "  -->  " + tgt
+    tStart = time.time()
 
     # size determines whether in one shot or by chunks
     statinfo = os.stat(src)
@@ -443,6 +444,11 @@ def dbxUp(config,src,tgt,debug=0):
             print ' ERROR - ExecutionError -- dbxUp URL:    ' + url
             print '                        -- dbxUp FIELDS: ' + ''
             print '         ' + data['error']
+
+    tEnd = time.time()
+
+    print " transfered: %.0f MB in %.2f sec at %.2f MB/sec"%\
+        (size/1000./1000.,tEnd-tStart,size/1000./1000./(tEnd-tStart))
 
     return
 
