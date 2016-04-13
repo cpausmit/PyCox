@@ -142,17 +142,20 @@ def dbxExecuteCurlToFile(url,fileName,debug=0):
     # execute a well defined curl command and return the json formatted output data
 
     # setup the curl output buffer
-    with open(fileName,'wb') as fileH:
-        # define our curl request
-        c = pycurl.Curl()
-        c.setopt(c.URL,url)
-        c.setopt(c.WRITEDATA,fileH)
-    
-        # perfrom the curl request and close it
-        c.perform()
-        print 'Status: %d (in %f secs)' %(c.getinfo(c.RESPONSE_CODE),c.getinfo(c.TOTAL_TIME))
+    fileH = open(fileName,'wb')
 
-        c.close()
+    # define our curl request
+    c = pycurl.Curl()
+    c.setopt(c.URL,url)
+    c.setopt(c.WRITEDATA,fileH)
+    
+    # perfrom the curl request and close it
+    c.perform()
+    print 'Status: %d (in %f secs)' %(c.getinfo(c.RESPONSE_CODE),c.getinfo(c.TOTAL_TIME))
+    c.close()
+    
+    # closing up file
+    fileH.close()
 
     return
 
