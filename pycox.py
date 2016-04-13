@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+## #!/usr/bin/env python
 #---------------------------------------------------------------------------------------------------
 #
 # Script defines core operations on dropbox file system: list, remove, upload, download  etc.
