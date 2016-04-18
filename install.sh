@@ -12,7 +12,7 @@ echo "# CAREFUL THIS FILE IS GENERATED AT INSTALL"          >> setup.sh
 echo "export PYCOX_BASE=`pwd`"                              >> setup.sh
 echo "export PATH=\"\${PATH}:\${PYCOX_BASE}\""              >> setup.sh
 echo ""                                                     >> setup.sh
-echo "export MY_PYTHON=\`which python26\`"                  >> setup.sh
+echo "export MY_PYTHON=\`which python26 2> /dev/null\`"     >> setup.sh
 echo "[ -z \"\$MY_PYTHON\" ] && MY_PYTHON=\`which python\`" >> setup.sh
 echo ""                                                     >> setup.sh
 
