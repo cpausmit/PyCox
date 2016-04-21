@@ -685,8 +685,8 @@ except getopt.GetoptError, ex:
 # Get all parameters for the production
 # --------------------------------------------------------------------------------------------------
 # Set defaults for each command line parameter/option
-configFile = os.environ.get('PYCOX_BASE') + '/' + 'pycox.cfg'
-testFile = os.environ.get('HOME') + '/' + '.pycox.cfg'
+configFile = os.environ.get('PYCOX_BASE','NOT-DEFINED') + '/' + 'pycox.cfg'
+testFile = os.environ.get('HOME','NOT-DEFINED') + '/' + '.pycox.cfg'
 if os.path.isfile(testFile):
     configFile = testFile
 
