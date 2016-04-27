@@ -6,6 +6,7 @@
 #                                                                         v0 - Mar 31, 2016 - C.Paus
 #---------------------------------------------------------------------------------------------------
 import os,sys,subprocess,getopt,re,random,ConfigParser,pycurl,urllib,time,json,pprint
+from subprocess import PIPE
 from io import BytesIO
 
 # Make a unique id to be used throughout to generate unique files (the id
@@ -103,6 +104,7 @@ def dbxExecuteCurl(url,postfields='',fileName='',debug=0):
     c.setopt(c.URL,url)
     c.setopt(c.HEADERFUNCTION,header.write)
     c.setopt(c.WRITEFUNCTION,body.write)
+    c.setopt(c.FOLLOWLOCATION, True)
 
     # is this a 'get' request?
     if postfields != '':
@@ -192,12 +194,12 @@ def dbxLs(config,src,debug=0):
     # List the given source
 
     print "# o List o  " + src
-    
+     
     # setup the curl output buffer
     data = dbxGetMetaData(config,src,debug)
     if debug>2:
         pprint.pprint(data)
-    
+     
     # make sure path exists
     if 'is_deleted' in data:
         entryIsDeleted = data["is_deleted"]
