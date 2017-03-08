@@ -1,4 +1,4 @@
-## #!/usr/bin/env python
+# #!/usr/bin/env python
 #---------------------------------------------------------------------------------------------------
 #
 # Script defines core operations on dropbox file system: list, remove, upload, download  etc.
@@ -607,6 +607,67 @@ def dbxRm(config,src,debug=0):
  
     return
 
+def dbxRmR(config,src,debug=0):
+    # Remove the given path recursively
+
+    data = ""
+
+    #print "# o RemoveR o  " + src
+    isDir = dbxIsDir(config,src,debug)
+    if   isDir == 0:
+        # get the core elements for curl
+        (url,postfields) = dbxBaseUrlGet(config,'delete_url',debug)
+        postfields += '&path=' + urllib.quote_plus(src)
+        print '# RemoveR file: %s'%(src)
+        data = dbxExecuteCurl(url,postfields,'',debug)
+        if 'error' in data:
+            print ' ERROR - ExecutionError -- dbxRm URL:    ' + url
+            print '                        -- dbxRm FIELDS: ' + postfields
+            print '         ' + data['error']
+
+    elif isDir == 1:
+        # setup the curl for a list
+        data = dbxGetMetaData(config,src,debug)
+
+        # make sure path exists
+        if 'is_deleted' in data:
+            entryIsDeleted = data["is_deleted"]
+            if entryIsDeleted:
+                print ' ERROR - path does not exist (is_deleted)'
+   
+        # loop through the content and show each entry we find
+        if 'contents' in data:
+            for entry in data["contents"]:
+                entryPath = entry["path"]
+                entrySize = entry["bytes"]
+                entryType = 'F'
+                if entry["is_dir"]:
+                    entryType = 'D'
+                dbxRmR(config,entryPath,debug=0)
+        else:
+            if 'path' in data:
+                entryPath = data["path"]
+                entrySize = data["bytes"]
+                entryIsDeleted = False
+                if 'is_deleted' in data:
+                    entryIsDeleted = data["is_deleted"]
+                entryType = 'F'
+                if data["is_dir"]:
+                    entryType = 'D'
+                if entryIsDeleted:
+                    print ' ERROR - file does not exist (is_deleted)'
+                else:
+                    dbxRmR(config,entryPath,debug=0)
+            else:
+                print ' ERROR - Requested object does not exist.'
+
+        # all files are done, make sure to cleanup the emtpy directory
+        dbxRmDirX(config,src,debug=0)
+    else:
+        print ' ERROR - path inquery failed.'
+ 
+    return
+
 def dbxRmDir(config,src,debug=0):
     # Remove the given path if it is a directory (show contents and ask for confirmation)
 
@@ -632,6 +693,29 @@ def dbxRmDir(config,src,debug=0):
         else:
             print "\n STOP. EXIT here. \n"
             
+    elif isDir == 0:
+        print ' ERROR - path is a file, cannot delete.'
+    else:
+        print ' ERROR - path inquery failed.'
+ 
+    return
+
+def dbxRmDirX(config,src,debug=0):
+    # Remove the given path if it is a directory (show contents and ask for confirmation)
+
+    print "# o RemoveDir o  " + src
+
+    isDir = dbxIsDir(config,src,debug)
+
+    if   isDir == 1:
+        # get the core elements for curl and do it
+        (url,postfields) = dbxBaseUrlGet(config,'delete_url',debug)
+        postfields += '&path=' + urllib.quote_plus(src)
+        data = dbxExecuteCurl(url,postfields,'',debug)
+        if 'error' in data:
+            print ' ERROR - ExecutionError -- dbxRm URL:    ' + url
+            print '                        -- dbxRm FIELDS: ' + postfields
+            print '         ' + data['error']
     elif isDir == 0:
         print ' ERROR - path is a file, cannot delete.'
     else:
@@ -731,8 +815,12 @@ if   action == 'ls':
     dbxLs(config,src,debug)
 elif action == 'rm':
     dbxRm(config,src,debug)
+elif action == 'rmr':
+    dbxRmR(config,src,debug)
 elif action == 'rmdir':
     dbxRmDir(config,src,debug)
+elif action == 'rmdirx':
+    dbxRmDirX(config,src,debug)
 elif action == 'mkdir':
     dbxMkDir(config,src,debug)
 elif action == 'du':
